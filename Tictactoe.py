@@ -1,4 +1,4 @@
-import random
+from stats_manager import update_win_stats, save_stats_to_csv, read_stats_from_csv
 
 class Board:
     def __init__(self):
@@ -47,16 +47,14 @@ class Board:
         return all(cell != " " for cell in self.board)
 
 
-
 class BasePlayer:
-# all player applies 
-    def __init__(self, symbol):
-        """Initializes the player with a symbol."""
+    def __init__(self, symbol, name):
+        """Initializes the player with a symbol and name."""
         self.symbol = symbol
+        self.name = name
 
     def make_move(self, board):
         pass
-
 
 class HumanPlayer(BasePlayer):
 
@@ -66,17 +64,6 @@ class HumanPlayer(BasePlayer):
             position = int(input(f"Player {self.symbol}'s turn: "))
         except ValueError:
             return False
-        return board.make_move(position, self.symbol)
-
-
-class BotPlayer(BasePlayer):
-
-    def make_move(self, board):
-
-        valid_moves = [i + 1 for i in range(9) if board.is_valid_move(i + 1)]
-        #print(f"Valid moves: {valid_moves}")
-        position = random.choice(valid_moves)
-        print(f"BotPlayer {self.symbol} 's turn: {position}")
         return board.make_move(position, self.symbol)
 
 
@@ -96,7 +83,6 @@ class Game:
         )
 
     def play(self):
-        #run the game loop
         while True:
             self.board.print_board()
             if not self.current_player.make_move(self.board):
@@ -104,35 +90,41 @@ class Game:
                 continue
 
             if self.board.check_winner(self.current_player.symbol):
-                self.board.print_board()
-                print(f"Player {self.current_player.symbol} wins!")
+                print(f"{self.current_player.name} wins!")
+                update_win_stats(win_stats, self.current_player.name)
                 break
 
             if self.board.is_full():
                 self.board.print_board()
                 print("It's a tie!")
+                win_stats[self.player1.name]['ties'] += 1
+                win_stats[self.player2.name]['ties'] += 1
                 break
 
             self.switch_player()
 
 
 if __name__ == "__main__":
-    # To play the game
-    while True:
-        num_human_players = input("How many human players? (1/2): ")
-        if num_human_players in ["1", "2"]:
-            break
-        else:
-            print("Please only enter 1 or 2.")
+    player1_name = input("Enter name for Player 1 (X): ")
+    player2_name = input("Enter name for Player 2 (O): ")
 
-    player1 = HumanPlayer("X")
-    player2 = BotPlayer("O")
+    win_stats = read_stats_from_csv()  # Read existing stats or initialize if the file doesn't exist
 
-    if num_human_players == "1":
-        player2 = BotPlayer("O")
-    elif num_human_players == "2":
-        player2 = HumanPlayer("O")
+    # Initialize stats for new players
+    for player_name in [player1_name, player2_name]:
+        if player_name not in win_stats:
+            win_stats[player_name] = {'wins': 0, 'ties': 0, 'games_played': 0}
+
+    player1 = HumanPlayer("X", player1_name)
+    player2 = HumanPlayer("O", player2_name)
 
     game = Game(player1, player2)
     game.play()
+
+    # Update games played count
+    win_stats[player1_name]['games_played'] += 1
+    win_stats[player2_name]['games_played'] += 1
+
+    # Save updated statistics to CSV
+    save_stats_to_csv(win_stats)
 
